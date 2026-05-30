@@ -280,3 +280,39 @@ why we run the app, not just lint it.
 **Result.** `app/app.py`, five tabs (potential map · browse · outlet detail · Western budget),
 all reading precomputed artifacts; 20,000 rows load, 19,760 with map-valid coordinates (the
 240 out-of-bounds rows are excluded from map layers only, not from the data).
+
+---
+
+## Phase 7 — Validation, idempotency, packaging, finals stats
+
+**Goal.** Make the whole thing defensible and submittable: extend validation to the new
+outputs, prove idempotency, dump the finals numbers the PDFs cite, and package the two
+submission artifacts.
+
+**No GenAI generation here — engineering discipline, logged for completeness.**
+
+- **Extended validation.** `validate_predictions.py` now also checks the budget CSV (exact
+  columns, Western-only, sum ≤ 5M, no negatives/nulls) and the explanations JSON (one entry
+  per outlet, each non-empty with an evidence packet). All 8 + 5 + 3 checks pass; missing
+  artifacts warn-and-skip so it runs at any stage.
+- **Idempotency, proven not asserted.** Snapshotted content signatures of the seven
+  deterministic outputs (poi_decay, gold, physical_max, predictions, budget, both
+  rejected-records files), re-ran the whole deterministic chain, and re-diffed: **all seven
+  byte-identical.** Crucially the rejected-records files don't duplicate on re-run — the
+  property the rubric calls out explicitly.
+- **Finals-stats dump.** `finals_stats.py` → `reports/finals_stats.{json,md}`: one traceable
+  source for every figure the paper/deck quote (segment means, uplift mean, the 95%/5% max()
+  split, urban/rural, the 2.05× upside gap, Tobit/Weibull agreement, the 5M allocation +
+  efficiency). The finals segment means (XL 2156 / Large 1045 / Medium 351 / Small 145 L)
+  landed within 1 L of the prelim baselines — independent evidence the framework is stable.
+- **Submission packaging.** `make_repro_zip.py` builds the slot-3 "Reproducible Codebase" zip
+  (code + bronze + 16k POI cache + outputs, 305 MB → 141 MB) with a pre-write assertion and a
+  post-write leak check that confirmed **no `.env` / `CLAUDE.md` / `tasks.md` / scaffolding**
+  made it in. The web app is split into its own repo with bundled artifacts so it runs
+  standalone — matching the form's separate "web app repository" slot.
+
+**Honest note on the two `cvxpy`/solver and GitHub-Models dead-ends** (logged in Phases 5 and
+4): both were found by *running* the code, not by reading it — as were the merge-collision bug
+(Phase 6) and the 227 validator false-positives (Phase 4). The pattern across the final round
+was: build, run, let the failure surface, fix, re-verify. That loop — not a clean first
+draft — is what the evidence in this log actually documents.

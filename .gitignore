@@ -5,17 +5,37 @@ data/
 
 # Python
 __pycache__/
-
-# Local-only report artifacts (figures are regenerated; genai_log is the
-# old prelim scratch file — the tracked final-round log is GENAI_LOG.md).
-reports/figures/
-reports/genai_log.md
-
-# AI-collaboration playbooks — kept local, not part of the public repo.
-CLAUDE.md
-SOLO_PLAYBOOK.md
-tasks.md
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
 
 # Logs and trained model binary — regenerate via the pipeline scripts.
 logs/
 models/
+
+# Report intermediates — ship the PDFs, keep working source local.
+# (figures regenerate; report.md/html are prelim scratch; genai_log.md is the
+# old lowercase prelim log — the tracked final-round log is GENAI_LOG.md.)
+reports/figures/
+reports/genai_log.md
+reports/report.md
+reports/report.html
+
+# AI-collaboration files — kept local, not part of the public repo.
+CLAUDE.md
+SOLO_PLAYBOOK.md
+tasks.md
+.claude/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build / dist
+.dist/
+*.egg-info/

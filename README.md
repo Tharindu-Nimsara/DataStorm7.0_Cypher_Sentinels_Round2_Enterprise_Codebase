@@ -1,6 +1,6 @@
 # Latent Outlet Potential — Data Storm v7.0 (Team Cypher Sentinels)
 
-Estimate the **latent maximum monthly volume** (liters) each of our ~20,000 Sri Lankan
+Estimate the **latent maximum monthly volume** (liters) each of our 20,000 Sri Lankan
 retail outlets *could* sell in **January 2026**, then turn that estimate into trade
 decisions: a 5,000,000-LKR budget allocation and a user-facing Outlet Intelligence app.
 
@@ -16,9 +16,9 @@ chase opportunity instead of rewarding outlets that are already maxed out.
 ## What's new in the final round
 
 The preliminary pipeline already does Bronze → Silver → Gold, a Stage-A LightGBM demand
-model, a 3-stage potential formula, and a resumable POI scrape (16,423 of 19,921 outlets
-cached so far). The final round **extends** that pipeline — it does not rebuild it — with
-five new modules:
+model, a 3-stage potential formula, and a resumable POI scrape (16,423 of 20,000 outlets
+cached so far, ~82%). The final round **extends** that pipeline — it does not rebuild it —
+with five new modules:
 
 | Module | File | What it adds |
 |---|---|---|
@@ -26,11 +26,12 @@ five new modules:
 | Formal censoring + physical limits | `src/censoring_model.py` | A Tobit censored-regression cross-check against LightGBM, plus a physical `Cooler_Count`-based ceiling so Stage B's constraint logic is physical, not only statistical |
 | Per-outlet explainability (XAI) | `src/xai_explain.py` | SHAP local attributions + an LLM layer that explains each outlet in plain business language, grounded only in the real numbers and cached to JSON |
 | Budget optimizer | `src/optimize_budget.py` | Allocates LKR 5M across Western-province outlets to maximize *incremental* volume under a diminishing-returns response function |
-| Outlet Intelligence web app | `app/app.py` | Streamlit app: browse/search all 19,921 predictions, filter by province/distributor, drill into one outlet (SHAP chart + map + LLM explanation), and a Western budget view |
+| Outlet Intelligence web app | `app/app.py` | Streamlit app: browse/search all 20,000 predictions, filter by province/distributor, drill into one outlet (SHAP chart + map + LLM explanation), and a Western budget view |
 
-**Prelim baseline (recompute for finals):** 19,921 predictions, 77 gold features, mean
-potential ≈ 433.5 L, median ≈ 311.6 L, range 16–4877 L. Outlets by province: Western
-7,008 · Central 5,054 · North-Western 3,968 · Southern 3,891.
+**Prelim baseline (recompute for finals):** 20,000 predictions, 77 gold features, mean
+potential ≈ 433.2 L, median ≈ 219.5 L, range 77–2955 L (POI features imputed for ~18% of
+outlets not yet scraped). Outlets by province: Western 9,000 · Central 4,000 ·
+North-Western 4,000 · Southern 3,000.
 
 ---
 

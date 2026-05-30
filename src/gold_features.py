@@ -332,6 +332,33 @@ def build_peer(features: pd.DataFrame, monthly: pd.DataFrame, log: logging.Logge
     return f
 
 
+def merge_poi_decay(features: pd.DataFrame, log: logging.Logger) -> pd.DataFrame:
+    """Merge Phase 1 distance-decay + competitor features (data/gold/poi_decay_features.parquet).
+
+    poi_decay.py guarantees one row per master outlet with no nulls, so this is a plain
+    left join. If the file is missing we warn and return features unchanged so this script
+    still runs standalone (the model just won't see the decay features that run).
+    """
+    decay_path = GOLD / "poi_decay_features.parquet"
+    if not decay_path.exists():
+        log.warning("  poi_decay_features.parquet not found — run poi_decay.py first. "
+                    "Continuing without distance-decay / competitor features.")
+        return features
+
+    decay = pd.read_parquet(decay_path)
+    before = features.shape[1]
+    merged = features.merge(decay, on="Outlet_ID", how="left")
+    added = merged.shape[1] - before
+    n_missing = int(merged["decayed_density_weighted"].isna().sum()) if "decayed_density_weighted" in merged else -1
+    log.info("  Merged %d distance-decay/competitor features (%d outlets unmatched).",
+             added, n_missing)
+    # poi_decay covers every master outlet, but guard against a stale file
+    if n_missing > 0:
+        decay_cols = [c for c in decay.columns if c != "Outlet_ID"]
+        merged[decay_cols] = merged[decay_cols].fillna(0)
+    return merged
+
+
 def main() -> None:
     log = setup_logging()
     log.info("Gold features start.")
@@ -376,6 +403,13 @@ def main() -> None:
 
     # peer features must run after spatial + province so the cluster key is complete
     features = build_peer(features, monthly, log)
+
+    # Phase 1 spatial upgrade: merge the distance-decay + competitor features built by
+    # poi_decay.py. Kept in a separate module/parquet (not inlined here) so the heavy
+    # BallTree step can be rerun independently of the rest of the gold build. If the file
+    # is absent (poi_decay.py not yet run) we warn and continue with the prelim features,
+    # so gold_features stays runnable on its own.
+    features = merge_poi_decay(features, log)
 
     assert len(features) == len(master), \
         f"Row count drift: features={len(features)} master={len(master)}"

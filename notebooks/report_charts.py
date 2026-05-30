@@ -27,10 +27,13 @@ REJECTS = ROOT / "data" / "rejected_records"
 FIG = ROOT / "reports" / "figures"
 FIG.mkdir(parents=True, exist_ok=True)
 
-NAVY = "#1B2A4E"
-GREY = "#6C757D"
-LIGHT = "#D6DBDF"
-ACCENT = "#A4B7CB"
+# OCTAVE / John Keells Group house style — teal headings on clean white, to match the
+# official problem-statement document the judges are reading.
+NAVY = "#1F6F86"      # primary teal (section headers, bars) — kept var name for minimal diff
+GREY = "#5B6770"      # slate grey body/axis
+LIGHT = "#DCEAEF"     # pale teal fill
+ACCENT = "#4FB0C6"    # bright teal accent
+PINK = "#E6007E"      # OCTAVE magenta, used sparingly for emphasis
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -138,25 +141,26 @@ def chart_sri_lanka_map():
 # 3. Methodology flow diagram
 # ============================================================
 def chart_methodology_flow():
-    fig, ax = plt.subplots(figsize=(11, 5))
+    fig, ax = plt.subplots(figsize=(12, 5.5))
     ax.set_xlim(0, 14)
-    ax.set_ylim(0, 6)
+    ax.set_ylim(-0.2, 7)
     ax.axis("off")
-    ax.set_title("Three-Stage Methodology: Latent Outlet Potential",
-                 fontsize=12, color=NAVY, weight="bold")
+    ax.set_title("Four-Stage Framework: Latent Outlet Potential",
+                 fontsize=12, color=NAVY, weight="bold", y=1.02)
 
     boxes = [
         # (x, y, w, h, text, fill)
-        (0.5, 4, 2.2, 1.0, "Silver\nmonthly_outlet\n447,562 rows", LIGHT),
-        (0.5, 1, 2.2, 1.0, "Gold features\n20,000 × 77", LIGHT),
+        (0.4, 5.0, 2.3, 1.0, "Silver\nmonthly_outlet\n447,562 rows", LIGHT),
+        (0.4, 1.6, 2.3, 1.0, "Gold features\n20,000 × 105", LIGHT),
 
-        (3.5, 4, 2.5, 1.0, "Stage A\nLightGBM\n(uncensored months only)", ACCENT),
-        (3.5, 2.5, 2.5, 1.0, "Stage B\nConstraint detection\ncensoring + plateau", ACCENT),
-        (3.5, 1, 2.5, 1.0, "Stage C\nPeer 85th percentile", ACCENT),
+        (3.4, 5.4, 2.6, 1.0, "Stage A — LightGBM\n(uncensored months)", ACCENT),
+        (3.4, 4.0, 2.6, 1.0, "Stage B — Constraint\ncensoring + plateau", ACCENT),
+        (3.4, 2.6, 2.6, 1.0, "Stage C — Peer\n85th percentile", ACCENT),
+        (3.4, 1.2, 2.6, 1.0, "Physical ceiling\nCoolers × cap × cycles", ACCENT),
 
-        (7, 3, 3, 1.5, "max(\n  peak × 1.05,\n  stage_A,\n  peer_85th\n)", NAVY),
+        (6.9, 3.6, 3.0, 1.6, "raw = max(\n  peak × 1.05,\n  Stage A,\n  Peer 85th )", NAVY),
 
-        (10.5, 3, 3, 1.5, "× seasonality_jan26\n× constraint_uplift\nclip [floor, ceiling]", NAVY),
+        (10.6, 3.6, 3.0, 1.6, "× seasonality (Jan)\n× constraint uplift\nclip to [floor,\n min(peer99×1.5,\n physical_max)]", NAVY),
     ]
 
     for x, y, w, h, text, fill in boxes:
@@ -167,24 +171,26 @@ def chart_methodology_flow():
         ax.text(x + w / 2, y + h / 2, text, ha="center", va="center",
                 color=text_color, fontsize=8)
 
-    # Arrows
     def arrow(x1, y1, x2, y2):
         ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
                     arrowprops=dict(arrowstyle="->", color=GREY, lw=1.2))
 
-    arrow(2.7, 4.5, 3.5, 4.5)
-    arrow(2.7, 1.5, 3.5, 3)
-    arrow(2.7, 1.5, 3.5, 1.5)
-    arrow(6, 4.5, 7, 3.75)
-    arrow(6, 1.5, 7, 3.75)
-    arrow(6, 3, 7, 3.75)
-    arrow(10, 3.75, 10.5, 3.75)
+    # silver -> Stage A ; gold -> B, C, physical
+    arrow(2.7, 5.5, 3.4, 5.9)
+    arrow(2.7, 2.1, 3.4, 4.5)
+    arrow(2.7, 2.1, 3.4, 3.1)
+    arrow(2.7, 2.1, 3.4, 1.7)
+    # A, B, C -> raw max ; physical -> final clip
+    arrow(6.0, 5.9, 6.9, 4.6)
+    arrow(6.0, 4.5, 6.9, 4.4)
+    arrow(6.0, 3.1, 6.9, 4.2)
+    arrow(6.0, 1.7, 10.6, 3.9)            # physical ceiling feeds the final clip
+    arrow(9.9, 4.4, 10.6, 4.4)
 
-    # Bottom caption
-    ax.text(7, 0.2,
-            "Stage A predicts under censoring; the max() never undercuts history; "
-            "constraint uplift rewards capped outlets.",
-            ha="center", va="center", color=GREY, fontsize=9, style="italic")
+    ax.text(7.0, 0.3,
+            "Stage A predicts demand under censoring; the max() never undercuts history; "
+            "the constraint uplift rewards capped outlets; the physical cooler ceiling caps the result.",
+            ha="center", va="center", color=GREY, fontsize=8.5, style="italic")
 
     fig.tight_layout()
     fig.savefig(FIG / "methodology_flow.png", dpi=150)
@@ -259,6 +265,106 @@ def chart_feature_importance():
     print(f"  feature_importance.png — top feature: {fi['feature'].iloc[-1]}")
 
 
+# ============================================================
+# 7. Segment mean potential (finals)
+# ============================================================
+def chart_segment_means():
+    """Mean predicted potential by outlet size — the 'who has the upside' story."""
+    diag = pd.read_parquet(GOLD / "_predictions_diagnostic.parquet")
+    sub = pd.read_csv(ROOT / "reports" / "cypher_sentinels_predictions.csv")
+    d = diag.merge(sub, on="Outlet_ID")
+    order = ["Small", "Medium", "Large", "Extra Large"]
+    means = d.groupby("Outlet_Size")["Maximum_Monthly_Liters"].mean().reindex(order)
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    bars = ax.bar(means.index, means.values, color=[LIGHT, ACCENT, NAVY, "#14505f"],
+                  edgecolor="white")
+    ax.bar_label(bars, labels=[f"{v:,.0f} L" for v in means.values],
+                 padding=3, color=GREY, fontsize=9)
+    ax.set_ylabel("Mean predicted potential (L/month)")
+    ax.set_title("Latent potential rises sharply with outlet size")
+    fig.tight_layout()
+    fig.savefig(FIG / "segment_means.png", dpi=150)
+    plt.close(fig)
+    print(f"  segment_means.png — XL {means['Extra Large']:,.0f} vs Small {means['Small']:,.0f} L")
+
+
+# ============================================================
+# 8. Western budget allocation: spend vs incremental volume
+# ============================================================
+def chart_budget_allocation():
+    """By-distributor spend vs projected incremental volume + spend-type split."""
+    bd = pd.read_parquet(GOLD / "budget_allocation_detail.parquet")
+    funded = bd[bd["Trade_Spend_Allocation_LKR"] > 1.0]
+    by_dist = funded.groupby("primary_distributor").agg(
+        spend=("Trade_Spend_Allocation_LKR", "sum"),
+        incr=("projected_incremental_L", "sum")).sort_index()
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5))
+    x = np.arange(len(by_dist))
+    w = 0.38
+    ax1.bar(x - w/2, by_dist["spend"] / 1e6, w, label="Spend (M LKR)", color=NAVY)
+    ax1b = ax1.twinx()
+    ax1b.bar(x + w/2, by_dist["incr"] / 1e3, w, label="Incremental (k L)", color=ACCENT)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(by_dist.index, fontsize=8)
+    ax1.set_ylabel("Spend (M LKR)", color=NAVY)
+    ax1b.set_ylabel("Incremental volume (k L/mo)", color=ACCENT)
+    ax1b.spines["top"].set_visible(False)
+    ax1.set_title("5M LKR allocation by distributor")
+
+    by_type = funded.groupby("spend_type")["Trade_Spend_Allocation_LKR"].sum() / 1e6
+    by_type = by_type.sort_values(ascending=True)
+    bars = ax2.barh(by_type.index, by_type.values, color=[LIGHT, ACCENT, NAVY][:len(by_type)],
+                    edgecolor="white")
+    ax2.bar_label(bars, labels=[f"{v:.2f}M" for v in by_type.values], padding=3,
+                  color=GREY, fontsize=9)
+    ax2.set_xlabel("Spend (M LKR)")
+    ax2.set_title("Spend by recommended type")
+    fig.tight_layout()
+    fig.savefig(FIG / "budget_allocation.png", dpi=150)
+    plt.close(fig)
+    print(f"  budget_allocation.png — {len(funded)} outlets funded")
+
+
+# ============================================================
+# 9. SHAP driver example (one worked outlet)
+# ============================================================
+def chart_shap_example():
+    """Signed driver chart for one illustrative outlet, from the cached explanations."""
+    import json
+    ex_path = GOLD / "outlet_explanations.json"
+    if not ex_path.exists():
+        print("  (skip shap_example — no explanations cache)")
+        return
+    ex = json.loads(ex_path.read_text(encoding="utf-8"))
+    diag = pd.read_parquet(GOLD / "_predictions_diagnostic.parquet")
+    # pick a high-potential, supply-constrained outlet for an interesting story
+    cand = diag[diag["censoring_score"] > 0.12].sort_values("potential_final", ascending=False)
+    oid = next((o for o in cand["Outlet_ID"] if o in ex), None) or next(iter(ex))
+    rec = ex[oid]
+    ev = rec["evidence"]
+    drivers = ([(d["feature"], d["shap"]) for d in ev.get("top_drivers_up", [])] +
+               [(d["feature"], d["shap"]) for d in ev.get("top_drivers_down", [])])
+    drivers = sorted(drivers, key=lambda t: t[1])
+    labels = [d[0] for d in drivers]
+    vals = [d[1] for d in drivers]
+    colors = [PINK if v < 0 else NAVY for v in vals]
+
+    fig, ax = plt.subplots(figsize=(8, 4.2))
+    bars = ax.barh(labels, vals, color=colors, edgecolor="white")
+    ax.axvline(0, color=GREY, lw=0.8)
+    ax.set_xlabel("SHAP contribution (log-volume space)")
+    ax.set_title(f"Why outlet {oid} scores {ev['predicted_potential_liters']:.0f} L "
+                 f"(peak {ev['historical_peak_liters']:.0f} L)")
+    ax.tick_params(axis="y", labelsize=8)
+    fig.tight_layout()
+    fig.savefig(FIG / "shap_example.png", dpi=150)
+    plt.close(fig)
+    print(f"  shap_example.png — outlet {oid}")
+    return oid
+
+
 def main():
     print("Generating report charts...")
     chart_rejected_records()
@@ -267,6 +373,9 @@ def main():
     chart_predictions_histogram()
     chart_predictions_geo()
     chart_feature_importance()
+    chart_segment_means()
+    chart_budget_allocation()
+    chart_shap_example()
     print("Done. Figures in:", FIG)
 
 

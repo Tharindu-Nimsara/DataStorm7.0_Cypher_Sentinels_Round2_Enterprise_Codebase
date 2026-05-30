@@ -27,6 +27,13 @@ reports/genai_log.md
 reports/report.md
 reports/report.html
 
+# Written deliverables (the paper & deck) are submitted via the entry form, not
+# tracked in the code repo — and their drafts/build helpers stay local.
+reports/paper.*
+reports/deck.*
+notebooks/build_paper_html.py
+notebooks/build_deck_html.py
+
 # AI-collaboration files — kept local, not part of the public repo.
 CLAUDE.md
 SOLO_PLAYBOOK.md

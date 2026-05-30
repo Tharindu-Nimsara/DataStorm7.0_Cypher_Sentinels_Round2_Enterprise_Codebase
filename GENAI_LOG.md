@@ -203,3 +203,54 @@ user ever sees an invented number. That's the validated-GenAI posture the rubric
 (12 live `gpt-4o-mini`, 19,988 grounded offline / live-rejected), each keyed by Outlet_ID with
 its `source`, `explanation`, and full `evidence` packet. Caching makes the app instant and
 offline-capable; live regeneration is opt-in when a token is present.
+
+*Post-build audit (caught two of our own bugs, fixed both).* Auditing the cache, 227 offline
+rows tripped our own validator. The cause wasn't the LLM — it was us: (1) raw column names
+leaked into driver text ("peer p85 monthly", "poi restaurant 2000m") because we hadn't
+labelled `peer_p85_monthly` / the `poi_<type>_<radius>m` columns; (2) the validator then
+flagged the "85" inside "p85" as an ungrounded figure. We added the missing business labels +
+a generic `poi_<type>_<radius>m` rule, and restricted the validator to standalone numeric
+tokens (digits not adjacent to a letter). Re-audit: **0 / 20,000 ungrounded, 0 column leaks.**
+Worth recording because it shows the validation net catching *our* mistakes, not just the
+model's.
+
+---
+
+## Phase 5 — LKR 5,000,000 Western budget optimiser
+
+**Goal.** Turn the potential estimates into a concrete trade-spend allocation across the 9,000
+Western-province outlets that maximises *incremental* volume (Business Viability 25% +
+deliverable #2).
+
+**Prompt (paraphrased).** "We have potential per outlet. Formulate a 5M-LKR allocation that
+maximises incremental volume with diminishing returns, where responsiveness depends on whether
+an outlet is supply- or demand-constrained. cvxpy or greedy?"
+
+**Accepted.**
+- *Opportunity gap* `max(potential − recent_actual, 0)` with `recent_actual = vol_mean`.
+  Western total gap ≈ **1.96M L/month**, mean 218 L.
+- *Saturating response* `gap·(1−e^{−k·s})` — diminishing returns matching real promo
+  behaviour, with `k` keyed to constraint type (supply-constrained relieved faster by
+  cooler/merchandising spend; demand-led nudged more slowly by discounts).
+- *Both an exact and an explainable solver.* cvxpy for the exact concave optimum **and** a
+  greedy marginal-return allocator we can narrate on stage ("fund the best litres-per-rupee
+  first"). Reporting both, with their agreement, is stronger than either alone.
+
+**Rejected / modified.**
+- *Rejected: a linear `min(α·s, gap)` response.* Simpler, but it has no diminishing returns,
+  so the optimum degenerates to dumping the cap on the highest-gap outlets — unrealistic and
+  not a good stage story. The concave form spreads spend sensibly.
+- *Fixed: solver choice.* The first cut called `cvxpy` with `ECOS`, which **isn't bundled with
+  modern cvxpy** — it fell back to greedy. We switched to the bundled **CLARABEL** conic
+  solver (SCS fallback); the exact solve now runs (`status=optimal`).
+
+**Validation.** The exact cvxpy solution and the transparent greedy allocator project
+**154,524 L vs 154,475 L** incremental — agreement **1.000**. So the simple, stage-explainable
+greedy is provably near-optimal here; we don't have to choose between rigour and
+explainability.
+
+**Result.** `reports/cypher_sentinels_budget_allocations.csv` (9,000 Western rows; exact cols
+`Outlet_ID, Trade_Spend_Allocation_LKR`; sum 4,999,999.72 ≤ 5M; 0 negatives/nulls). 805
+outlets funded (per-outlet cap 50k keeps spend spread; max single 17,530). Projected
+**+154,524 L/month** (7.9% of the gap), balanced across DIST_W_01/02/03. Spend mix: 663
+discount, 115 merchandising, 27 cooler.

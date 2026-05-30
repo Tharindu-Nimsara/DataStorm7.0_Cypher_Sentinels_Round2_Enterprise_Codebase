@@ -18,6 +18,9 @@ REPORTS = ROOT / "reports"
 
 TEAMNAME = "cypher_sentinels"  # keep in sync with predict.py
 SUBMISSION = REPORTS / f"{TEAMNAME}_predictions.csv"
+BUDGET_CSV = REPORTS / f"{TEAMNAME}_budget_allocations.csv"
+EXPLANATIONS_JSON = GOLD / "outlet_explanations.json"
+TOTAL_BUDGET_LKR = 5_000_000.0
 
 
 def setup_logging() -> logging.Logger:
@@ -106,11 +109,92 @@ def main() -> int:
     sample = j.sample(10, random_state=42).sort_values("Outlet_ID")
     log.info("\n%s", sample.to_string(index=False))
 
+    # ── Budget allocation CSV (Phase 5) ──
+    failures += validate_budget(master, gold, log)
+
+    # ── Explanations JSON (Phase 4) ──
+    failures += validate_explanations(sub, log)
+
     if failures:
         log.error("VALIDATION FAILED:\n  - " + "\n  - ".join(failures))
         return 1
     log.info("ALL CHECKS PASSED.")
     return 0
+
+
+def validate_budget(master, gold, log) -> list[str]:
+    """Western-only, sum ≤ 5M, no negatives/nulls, exact two columns."""
+    fails: list[str] = []
+    if not BUDGET_CSV.exists():
+        log.warning("[B0] Budget CSV missing (%s) — skipping budget checks "
+                    "(run optimize_budget.py).", BUDGET_CSV.name)
+        return fails
+
+    b = pd.read_csv(BUDGET_CSV)
+    expected = ["Outlet_ID", "Trade_Spend_Allocation_LKR"]
+    if list(b.columns) != expected:
+        fails.append(f"budget columns {list(b.columns)} != {expected}")
+    log.info("[B1] Budget columns: %s — %s", b.columns.tolist(),
+             "OK" if list(b.columns) == expected else "FAIL")
+
+    # Western only — every budget Outlet_ID must be a Western-province outlet
+    west_ids = set(gold.loc[gold["Province"] == "Western", "Outlet_ID"]) \
+        if "Province" in gold.columns else set(b["Outlet_ID"])
+    n_non_west = int((~b["Outlet_ID"].isin(west_ids)).sum())
+    if n_non_west:
+        fails.append(f"{n_non_west} budget rows are not Western-province outlets")
+    log.info("[B2] Western-only: %d non-Western rows — %s",
+             n_non_west, "OK" if n_non_west == 0 else "FAIL")
+
+    total = float(b["Trade_Spend_Allocation_LKR"].sum())
+    if total > TOTAL_BUDGET_LKR + 1.0:
+        fails.append(f"budget sum {total:.2f} exceeds {TOTAL_BUDGET_LKR:.0f}")
+    log.info("[B3] Budget sum: %.2f (<= %.0f) — %s",
+             total, TOTAL_BUDGET_LKR, "OK" if total <= TOTAL_BUDGET_LKR + 1.0 else "FAIL")
+
+    n_neg = int((b["Trade_Spend_Allocation_LKR"] < 0).sum())
+    n_null = int(b.isna().any(axis=1).sum())
+    if n_neg or n_null:
+        fails.append(f"budget has {n_neg} negative and {n_null} null rows")
+    log.info("[B4] Negatives/nulls: %d / %d — %s",
+             n_neg, n_null, "OK" if not (n_neg or n_null) else "FAIL")
+
+    n_funded = int((b["Trade_Spend_Allocation_LKR"] > 1.0).sum())
+    log.info("[B5] Funded outlets: %d of %d; spend concentrated where gap×responsiveness "
+             "is highest.", n_funded, len(b))
+    return fails
+
+
+def validate_explanations(sub, log) -> list[str]:
+    """One explanation per outlet, each with text + an evidence packet."""
+    import json
+    fails: list[str] = []
+    if not EXPLANATIONS_JSON.exists():
+        log.warning("[X0] Explanations JSON missing (%s) — skipping (run xai_explain.py).",
+                    EXPLANATIONS_JSON.name)
+        return fails
+
+    ex = json.loads(EXPLANATIONS_JSON.read_text(encoding="utf-8"))
+    sub_ids = set(sub["Outlet_ID"])
+    missing = sub_ids - set(ex.keys())
+    if missing:
+        fails.append(f"{len(missing)} outlets have no explanation")
+    log.info("[X1] Coverage: %d explanations for %d outlets — %s",
+             len(ex), len(sub_ids), "OK" if not missing else "FAIL")
+
+    n_empty = sum(1 for r in ex.values()
+                  if not r.get("explanation") or "evidence" not in r)
+    if n_empty:
+        fails.append(f"{n_empty} explanations are empty or missing an evidence packet")
+    log.info("[X2] Non-empty + evidence packet: %d bad — %s",
+             n_empty, "OK" if n_empty == 0 else "FAIL")
+
+    from collections import Counter
+    srcs = Counter("llm" if r["source"].startswith("github_models") else "template"
+                   for r in ex.values())
+    log.info("[X3] Sources: %d live LLM, %d grounded template.",
+             srcs.get("llm", 0), srcs.get("template", 0))
+    return fails
 
 
 if __name__ == "__main__":

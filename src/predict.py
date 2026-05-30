@@ -27,6 +27,13 @@ HISTORICAL_FLOOR = 1.05      # Sanity floor: never below outlet's max × 1.05
 SANITY_CEIL_MULT = 1.5       # Sanity ceiling: never above peer P99 × 1.5
 UPLIFT_MAX = 0.25            # Constraint uplift coefficient (range [1.00, 1.25])
 
+# Phase 2: fold the physical cooler ceiling into the sanity ceiling. A prediction shouldn't
+# exceed what the outlet's fridges can physically move in a month — UNLESS the outlet is
+# flagged cooler_capacity_breached (its history already beats raw capacity, i.e. likely stale
+# cooler master-data), in which case physical_max was floored to peak×1.05 and would wrongly
+# clamp the uplift, so we skip it there. The historical floor still wins last, always.
+USE_PHYSICAL_CEILING = True
+
 TEAMNAME = "cypher_sentinels"
 OUTPUT_CSV = REPORTS / f"{TEAMNAME}_predictions.csv"
 
@@ -78,8 +85,20 @@ def main() -> None:
     df["peer_99th"] = df["peer_p99_monthly"]
     df["historical_peak"] = df["vol_max"]
     df["floor"] = df["historical_peak"] * HISTORICAL_FLOOR
-    df["sanity_ceiling"] = df["peer_99th"] * SANITY_CEIL_MULT
+    df["peer_ceiling"] = df["peer_99th"] * SANITY_CEIL_MULT
     df["seas"] = df["seasonality_jan_mult"]
+
+    # Sanity ceiling = peer-based cap, tightened by the physical cooler ceiling where that
+    # ceiling is trustworthy (not on stale-cooler-data outlets). This makes the cap physical
+    # in addition to statistical, per the Phase-2 methodology upgrade.
+    df["sanity_ceiling"] = df["peer_ceiling"]
+    if USE_PHYSICAL_CEILING and "physical_max" in df.columns:
+        trust_physical = df.get("cooler_capacity_breached", pd.Series(0, index=df.index)) == 0
+        physical_cap = np.where(trust_physical, df["physical_max"].values, np.inf)
+        df["sanity_ceiling"] = np.minimum(df["peer_ceiling"].values, physical_cap)
+        n_phys_binds = int((physical_cap < df["peer_ceiling"].values).sum())
+        log.info("Physical ceiling active on %d trusted-cooler outlets; it binds tighter than "
+                 "the peer ceiling for %d of them.", int(trust_physical.sum()), n_phys_binds)
 
     log.info("Applying formula: max(floor, stage_a, peer_85) * seas * uplift, clipped.")
     raw = np.maximum.reduce([
@@ -126,14 +145,20 @@ def main() -> None:
     log.info("Submission columns: %s", submission.columns.tolist())
 
     diag_path = GOLD / "_predictions_diagnostic.parquet"
-    df[[
+    diag_cols = [
         "Outlet_ID", "Outlet_Type", "Outlet_Size", "Province",
         "vol_mean", "vol_max", "vol_p95", "vol_p99",
-        "stage_a_pred", "peer_85th", "peer_99th", "floor", "sanity_ceiling",
+        "stage_a_pred", "peer_85th", "peer_99th", "floor",
+        "peer_ceiling", "sanity_ceiling",
         "censoring_score", "plateau_score", "plateau_norm",
         "constraint_uplift", "seas",
         "potential_raw", "potential_scaled", "potential_ceiled", "potential_final",
-    ]].to_parquet(diag_path, index=False)
+    ]
+    # carry the Phase-2 physical-ceiling diagnostics through when present
+    for c in ("physical_max", "physical_max_raw", "cooler_capacity_breached"):
+        if c in df.columns:
+            diag_cols.append(c)
+    df[diag_cols].to_parquet(diag_path, index=False)
     log.info("Wrote diagnostic frame: %s", diag_path)
 
 

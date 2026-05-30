@@ -1,0 +1,74 @@
+{
+  "n_outlets": 20000,
+  "prediction": {
+    "mean": 430.5,
+    "median": 214.8,
+    "min": 76.9,
+    "max": 2955.3,
+    "p95": 1387.1,
+    "p99": 2162.9
+  },
+  "segment_mean_potential": {
+    "Extra Large": 2156.0,
+    "Large": 1045.0,
+    "Medium": 351.0,
+    "Small": 145.0
+  },
+  "constraint_uplift_mean": 1.012,
+  "max_branch_split_pct": {
+    "historical_floor": 95.0,
+    "peer_85th": 5.0
+  },
+  "urban_vs_rural_mean": {
+    "urban": 807.0,
+    "rural": 419.0
+  },
+  "upside_gap": {
+    "total_potential_L": 8609587.0,
+    "total_recent_actual_L": 4191495.0,
+    "upside_gap_L": 4418092.0,
+    "upside_multiple": 2.05
+  },
+  "censoring_crosscheck": {
+    "Tobit": {
+      "pearson": 0.9443,
+      "spearman": 0.9074,
+      "mean_diff_L": 6.7,
+      "n": 20000
+    },
+    "WeibullAFT": {
+      "pearson": 0.7118,
+      "spearman": 0.9009,
+      "mean_diff_L": 31.3,
+      "n": 20000
+    }
+  },
+  "budget": {
+    "total_spent_LKR": 4999999.72,
+    "outlets_funded": 805,
+    "incremental_L_per_month": 154524.0,
+    "efficiency_L_per_1000_LKR": 30.9,
+    "by_distributor": {
+      "DIST_W_01": {
+        "outlets": 283.0,
+        "spend_LKR": 1777000.0,
+        "incremental_L": 55036.0
+      },
+      "DIST_W_02": {
+        "outlets": 265.0,
+        "spend_LKR": 1558894.0,
+        "incremental_L": 47752.0
+      },
+      "DIST_W_03": {
+        "outlets": 257.0,
+        "spend_LKR": 1664105.0,
+        "incremental_L": 51735.0
+      }
+    },
+    "by_spend_type": {
+      "discount": 663,
+      "merchandising": 115,
+      "cooler": 27
+    }
+  }
+}

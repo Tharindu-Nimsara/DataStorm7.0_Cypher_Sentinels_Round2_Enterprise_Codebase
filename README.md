@@ -82,13 +82,33 @@ python src/gold_features.py
 python src/censoring_model.py     # NEW: Tobit cross-check + physical_max
 python src/model.py
 python src/predict.py
-python src/xai_explain.py         # NEW: SHAP + LLM explanations -> JSON
+python src/xai_explain.py         # NEW: SHAP + LLM explanations -> JSON (needs .env GITHUB_TOKEN for live; else offline template)
 python src/optimize_budget.py     # NEW: 5M Western allocation -> budget CSV
-python src/validate_predictions.py
+python src/validate_predictions.py  # validates predictions + budget + explanations; exits non-zero on any failure
+python src/finals_stats.py        # NEW: finals-numbers dump -> reports/finals_stats.{json,md}
 streamlit run app/app.py          # NEW: web app
 ```
 
 `data/` is gitignored and fully reproducible from the raw CSVs in `data/bronze/`. Every
-stage is **idempotent**: re-running overwrites its outputs and never appends. No row is
-ever silently dropped — invalid rows are quarantined to `data/rejected_records/` with a
-`failure_reason`. All randomness is seeded with `random_state=42`.
+stage is **idempotent**: re-running overwrites its outputs and never appends (verified — a
+full double-run produces byte-identical features, predictions, budget, and rejected-records
+files). No row is ever silently dropped — invalid rows are quarantined to
+`data/rejected_records/` with a `failure_reason`. All randomness is seeded with
+`random_state=42`.
+
+### Configuration
+
+The XAI layer (`src/xai_explain.py`) is the only stage that uses a secret. Copy
+`.env.example` to `.env` and set `GITHUB_TOKEN` (a GitHub PAT with the **Models** permission)
+to generate live LLM explanations via GitHub Models. Without it, the layer falls back to a
+deterministic, grounded offline template, so the full pipeline still runs end-to-end with no
+key. `.env` is gitignored.
+
+### Submission packaging
+
+- `python make_repro_zip.py` builds `dist/cypher_sentinels_reproducible_codebase.zip` — the
+  full repo **plus** raw data, the POI cache, and all precomputed outputs (≈141 MB zipped) so
+  a reviewer can run everything in minutes without the ~5-hour Overpass scrape. It excludes
+  secrets and local scaffolding.
+- The **Outlet Intelligence web app** is maintained as its own repository (it bundles the
+  precomputed artifacts it needs and runs standalone after a clone).

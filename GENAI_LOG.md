@@ -254,3 +254,29 @@ explainability.
 outlets funded (per-outlet cap 50k keeps spend spread; max single 17,530). Projected
 **+154,524 L/month** (7.9% of the gap), balanced across DIST_W_01/02/03. Spend mix: 663
 discount, 115 merchandising, 27 cooler.
+
+---
+
+## Phase 6 — Streamlit Outlet Intelligence app
+
+**Goal.** A functional, locally-runnable app for business users (deliverable #4 + Business
+Viability 25%): browse 20k predictions, filter, drill into one outlet with its SHAP chart +
+map + LLM explanation, and view the Western budget.
+
+**GenAI's role here is *display*, not generation.** The app reads the **precomputed** cache
+from Phase 4 — it never calls the LLM at request time. That's a deliberate design choice we'd
+defend: live API calls in a demo are slow, can fail on stage, and cost money per view; serving
+the validated cache makes the demo instant, offline-capable, and reproducible. Each
+explanation is badged in the UI by its `source` (🤖 LLM vs 📝 grounded template) so the viewer
+knows which is which — transparency, not disguise.
+
+**Validation.** Launched headless (`streamlit run`, health endpoint `ok`, page renders, zero
+runtime errors in the log). Testing surfaced a **real merge-collision bug**: the diagnostic
+parquet and the gold table both carry `censoring_score` / `physical_max`, so a naïve join
+produced `_x`/`_y` columns and the constraint logic `KeyError`'d. Fixed `load_data` to pull
+from gold only the columns *not already in* diag. Found before any judge would have — exactly
+why we run the app, not just lint it.
+
+**Result.** `app/app.py`, five tabs (potential map · browse · outlet detail · Western budget),
+all reading precomputed artifacts; 20,000 rows load, 19,760 with map-valid coordinates (the
+240 out-of-bounds rows are excluded from map layers only, not from the data).

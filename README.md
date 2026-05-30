@@ -1,4 +1,4 @@
-# Latent Outlet Potential — Data Storm v7.0 (Team Cypher Sentinels)
+# Latent Outlet Potential — Data Storm 7.0 (Team Cypher Sentinels)
 
 Estimate the **latent maximum monthly volume** (liters) each of 20,000 Sri Lankan retail
 outlets *could* sell in **January 2026**, then turn that estimate into trade decisions: a

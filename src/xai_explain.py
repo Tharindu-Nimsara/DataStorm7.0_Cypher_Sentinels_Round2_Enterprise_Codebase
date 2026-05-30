@@ -108,6 +108,8 @@ FEATURE_LABELS = {
     "competitor_decay_weight": "competitive pressure",
     "peer_pct_vol_mean": "rank within its peer group",
     "peer_cluster_size": "peer-group size",
+    "peer_p85_monthly": "strong peers' sales level",
+    "peer_p99_monthly": "top peers' sales level",
     "seasonality_jan_mult": "January seasonality",
     "censoring_score": "months hitting the supply ceiling",
     "plateau_norm": "flat high-volume plateaus",
@@ -143,6 +145,17 @@ def label_for(feat: str) -> str:
         return f"{feat[5:].replace('_', ' ')} size"
     if feat.startswith("month_"):
         return "month-of-year effect"
+    # poi_<type>_<radius>m count columns → "<type> within <radius>"
+    m = re.fullmatch(r"poi_(.+)_(\d+)m", feat)
+    if m:
+        poi_type = m.group(1).replace("_", " ")
+        radius = int(m.group(2))
+        dist = f"{radius} m" if radius < 1000 else f"{radius // 1000} km"
+        return f"{poi_type} within {dist}"
+    # decayed/gravity per-type density columns
+    m = re.fullmatch(r"(?:decayed|gravity)_density_(.+)", feat)
+    if m and m.group(1) != "weighted":
+        return f"nearby {m.group(1).replace('_', ' ')} footfall"
     return feat.replace("_", " ")
 
 
@@ -374,7 +387,10 @@ def validate_explanation(text: str, packet: dict) -> list[int]:
     the packet) and flag any that don't match an allowed value within ±1. This is the
     automated guard behind the GenAI-transparency claim."""
     allowed = allowed_numbers(packet)
-    found = [int(round(float(m))) for m in re.findall(r"\d+(?:\.\d+)?", text)]
+    # Only standalone numeric tokens count — a number glued to letters (e.g. "p85", "2km",
+    # "DIST_W_1") is part of a name/label, not a quantitative claim, so it can't be a
+    # hallucinated figure. \b alone would split "p85"; we require no adjacent letter.
+    found = [int(round(float(m))) for m in re.findall(r"(?<![A-Za-z])\d+(?:\.\d+)?(?![A-Za-z])", text)]
     suspicious = []
     for n in found:
         if n <= 1 or n <= 100 and n in allowed:

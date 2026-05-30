@@ -119,3 +119,32 @@ we'd have revisited the uplift; they don't, so we keep it.
 `_censoring_crosscheck.json`. Gold grew 100 → 105 features. predict's sanity ceiling is now
 `min(peer_P99×1.5, physical_max)` on trusted-cooler outlets (binds tighter for 4,815 of them);
 mean potential 433.2 → 430.5 L, all 8 validation checks still pass (0 floor violations).
+
+---
+
+## Phase 3 — Retrain on the new feature set + regenerate predictions
+
+**Goal.** Make the predictions reflect the Phase-1 spatial-decay and Phase-2 physical-ceiling
+features before the optimizer, XAI, and app consume them.
+
+**No new GenAI here — this phase is a disciplined re-run, logged for honesty.** We retrained
+`model.py` unchanged (5-fold GroupKFold by Outlet_ID, target `log1p(Volume_Liters)`, seed 42)
+on the expanded matrix and re-ran `predict.py` + `validate_predictions.py`.
+
+**What we watched for, and what we found.**
+- *Did the extra features hurt the demand model?* No. CV mean **RMSE(log) = 0.6098** (folds
+  0.6087–0.6109), essentially the prelim's ~0.61. The spatial/physical features are stable
+  additions, not noise that degrades Stage A.
+- *Did the final distribution move?* Barely — mean held at **430.5 L**. This is itself a
+  finding worth stating plainly rather than dressing up: the `max(floor, stage_a, peer_85)`
+  formula is dominated by the historical floor and the peer-85th term, so Stage A rarely
+  "wins" the max(). The new features mostly improve *explainability and the ceiling*, not the
+  point estimate. We resisted the temptation to retune the formula just to make the number
+  move — there's no leaderboard, and a stable, defensible framework beats a tweaked one.
+- Top features by gain are unchanged (vol_mean, sku_diversity, vol_std…), confirming the
+  demand signal still comes from transactional history, with spatial/physical features as
+  context.
+
+**Result.** Fresh `reports/cypher_sentinels_predictions.csv` (20,000 rows; mean 430.5,
+median 214.8, range 77–2955 L). All 8 validation checks pass: 0 nulls, 0 non-positive, 0
+floor violations, Large/XL 1318 ≫ Small 145, urban 807 > rural 419.

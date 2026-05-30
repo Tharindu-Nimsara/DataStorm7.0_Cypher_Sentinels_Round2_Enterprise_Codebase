@@ -359,6 +359,27 @@ def merge_poi_decay(features: pd.DataFrame, log: logging.Logger) -> pd.DataFrame
     return merged
 
 
+def add_physical_max(features: pd.DataFrame, log: logging.Logger) -> pd.DataFrame:
+    """Attach the Phase-2 physical cooler ceiling + headroom signals as features.
+
+    Reuses censoring_model.build_physical_max so the constants and stale-cooler-data flag
+    live in exactly one place. Pure function of Cooler_Count + vol_max + vol_mean, all of
+    which are already on `features`, so no file dependency.
+    """
+    try:
+        from censoring_model import build_physical_max
+    except Exception as e:
+        log.warning("  could not import censoring_model.build_physical_max (%s) — "
+                    "skipping physical_max features.", e)
+        return features
+
+    phys = build_physical_max(features, log)
+    merged = features.merge(phys, on="Outlet_ID", how="left")
+    log.info("  Added %d physical-ceiling features (physical_max, headroom, breach flag).",
+             phys.shape[1] - 1)
+    return merged
+
+
 def main() -> None:
     log = setup_logging()
     log.info("Gold features start.")
@@ -410,6 +431,12 @@ def main() -> None:
     # is absent (poi_decay.py not yet run) we warn and continue with the prelim features,
     # so gold_features stays runnable on its own.
     features = merge_poi_decay(features, log)
+
+    # Phase 2 physical cooler ceiling: computed inline from Cooler_Count + vol_max (both
+    # already in `features`) by reusing censoring_model's pure builder. Computing it here —
+    # rather than reading censoring_model's parquet — avoids a circular dependency
+    # (censoring_model reads gold), so physical_max is always present for the model + predict.
+    features = add_physical_max(features, log)
 
     assert len(features) == len(master), \
         f"Row count drift: features={len(features)} master={len(master)}"

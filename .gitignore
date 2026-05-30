@@ -3,6 +3,9 @@ data/
 # but keep the folder structure so the pipeline has somewhere to write
 !data/.gitkeep
 
+# Secrets — never commit. GITHUB_TOKEN for the XAI LLM layer lives here.
+.env
+
 # Python
 __pycache__/
 *.pyc

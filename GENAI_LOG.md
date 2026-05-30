@@ -45,15 +45,22 @@ gravity model. What's defensible given ring data only?"
 **Validation (this is the part that counts).** We didn't trust the λ values blindly. We ran
 a sensitivity check: scale **every** bandwidth by ±50% and recompute the combined weighted
 density, then measure Spearman rank correlation against the base ranking.
-- λ × 0.5 → **Spearman 0.986**
-- λ × 1.5 → **Spearman 0.995**
+- λ × 0.5 → **Spearman 1.0000**
+- λ × 1.5 → **Spearman 1.0000**
 
-So which outlets look spatially strong is *stable* to large changes in λ — the exact
-bandwidths are not load-bearing, which is exactly what lets us defend the choice on stage
-instead of claiming false precision. The check is in `lambda_sensitivity_check()` and prints
-on every run.
+The ranking is *perfectly* stable to ±50% λ changes. The reason is worth stating honestly
+rather than overselling it: because the cache gives us fixed shell midpoints (250/750/1500 m),
+scaling λ applies the *same* monotonic factor to every outlet's per-type score, and the
+importance-weighted sum preserves that ordering. So the exact bandwidths are emphatically not
+load-bearing for *who ranks where* — they only reshape absolute magnitudes. That's the
+defensible claim, and it's exactly what the ±50% check demonstrates. The check is in
+`lambda_sensitivity_check()` and prints on every run.
 
 **Result.** `src/poi_decay.py` → `data/gold/poi_decay_features.parquet` (20,000 rows, 23
-cols). Gold table grew 77 → 100 features. Competitor density: mean 5.45 rivals within 500 m,
-max 42; `market_share_proxy` mean 0.292 (1.0 = local monopoly). Re-run is byte-identical
-(idempotent).
+feature cols + Outlet_ID). Gold table grew 77 → 100 features. DQ quarantined **240
+coordinate rows** outside the Sri Lanka bounding box (several sit at lat/lon ≈ 0 — legacy
+export garbage), so the BallTree was built over **19,760 clean** coordinates, not poisoned by
+them. Competitor density: mean **2.26** rivals within 500 m, median 2, max 12;
+`market_share_proxy` mean **0.681** (1.0 = local monopoly). 3,577 outlets (17.9%) had no POI
+cache and were cluster-median imputed; 240 (1.2%) were competitor-imputed. Re-run is
+byte-identical (idempotent).
